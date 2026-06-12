@@ -1,0 +1,72 @@
+[
+  {
+    "invoice_id": "INV-1001",
+    "supplier_name": "Nordic Office Supplies",
+    "supplier_vat": "FI12345678",
+    "invoice_date": "2026-07-01",
+    "due_date": "2026-07-15",
+    "net_amount": 1000,
+    "vat_amount": 240,
+    "total_amount": 1240,
+    "currency": "EUR",
+    "status": "paid",
+    "payment_date": "2026-07-10",
+    "account_code": "6100"
+  },
+  {
+    "invoice_id": "INV-1002",
+    "supplier_name": "Helsinki IT Services",
+    "supplier_vat": "",
+    "invoice_date": "2026-07-02",
+    "due_date": "2026-07-16",
+    "net_amount": 800,
+    "vat_amount": 192,
+    "total_amount": 992,
+    "currency": "EUR",
+    "status": "unpaid",
+    "payment_date": "",
+    "account_code": "6200"
+  },
+  {
+    "invoice_id": "INV-1003",
+    "supplier_name": "Tampere Consulting",
+    "supplier_vat": "FI87654321",
+    "invoice_date": "2026-07-04",
+    "due_date": "2026-07-03",
+    "net_amount": 500,
+    "vat_amount": 120,
+    "total_amount": 620,
+    "currency": "EUR",
+    "status": "unpaid",
+    "payment_date": "",
+    "account_code": "6300"
+  },
+  {
+    "invoice_id": "INV-1004",
+    "supplier_name": "Nordic Office Supplies",
+    "supplier_vat": "FI12345678",
+    "invoice_date": "2026-07-01",
+    "due_date": "2026-07-15",
+    "net_amount": 1000,
+    "vat_amount": 240,
+    "total_amount": 1240,
+    "currency": "EUR",
+    "status": "paid",
+    "payment_date": "2026-07-10",
+    "account_code": "6100"
+  },
+  {
+    "invoice_id": "INV-1005",
+    "supplier_name": "Payroll Partner Oy",
+    "supplier_vat": "FI55555555",
+    "invoice_date": "2026-07-05",
+    "due_date": "2026-07-20",
+    "net_amount": 1200,
+    "vat_amount": 250,
+    "total_amount": 1450,
+    "currency": "EUR",
+    "status": "paid",
+    "payment_date": "",
+    "account_code": "6400"
+  }
+]

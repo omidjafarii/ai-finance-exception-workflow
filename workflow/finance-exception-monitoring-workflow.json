@@ -1,0 +1,172 @@
+{
+  "name": "finance-exception-monitoring-workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      invoice_id: \"INV-1001\",\n      supplier_name: \"Nordic Office Supplies\",\n      supplier_vat: \"FI12345678\",\n      invoice_date: \"2026-07-01\",\n      due_date: \"2026-07-15\",\n      net_amount: 1000,\n      vat_amount: 240,\n      total_amount: 1240,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"2026-07-10\",\n      account_code: \"6100\"\n    }\n  },\n  {\n    json: {\n      invoice_id: \"INV-1002\",\n      supplier_name: \"Helsinki IT Services\",\n      supplier_vat: \"\",\n      invoice_date: \"2026-07-02\",\n      due_date: \"2026-07-16\",\n      net_amount: 800,\n      vat_amount: 192,\n      total_amount: 992,\n      currency: \"EUR\",\n      status: \"unpaid\",\n      payment_date: \"\",\n      account_code: \"6200\"\n    }\n  },\n  {\n    json: {\n      invoice_id: \"INV-1003\",\n      supplier_name: \"Tampere Consulting\",\n      supplier_vat: \"FI87654321\",\n      invoice_date: \"2026-07-04\",\n      due_date: \"2026-07-03\",\n      net_amount: 500,\n      vat_amount: 120,\n      total_amount: 620,\n      currency: \"EUR\",\n      status: \"unpaid\",\n      payment_date: \"\",\n      account_code: \"6300\"\n    }\n  },\n  {\n    json: {\n      invoice_id: \"INV-1004\",\n      supplier_name: \"Nordic Office Supplies\",\n      supplier_vat: \"FI12345678\",\n      invoice_date: \"2026-07-01\",\n      due_date: \"2026-07-15\",\n      net_amount: 1000,\n      vat_amount: 240,\n      total_amount: 1240,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"2026-07-10\",\n      account_code: \"6100\"\n    }\n  },\n  {\n    json: {\n      invoice_id: \"INV-1005\",\n      supplier_name: \"Payroll Partner Oy\",\n      supplier_vat: \"FI55555555\",\n      invoice_date: \"2026-07-05\",\n      due_date: \"2026-07-20\",\n      net_amount: 1200,\n      vat_amount: 250,\n      total_amount: 1450,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"\",\n      account_code: \"6400\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        64
+      ],
+      "id": "c6e88fa9-4809-4056-b5ef-0960b226d3f1",
+      "name": "Create Sample Finance Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoices = items.map(item => item.json);\n\nconst invoiceCounts = {};\nfor (const invoice of invoices) {\n  invoiceCounts[invoice.invoice_id] = (invoiceCounts[invoice.invoice_id] || 0) + 1;\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  return new Date(value);\n}\n\nfunction round2(value) {\n  return Math.round(Number(value) * 100) / 100;\n}\n\nfunction getSuggestedAction(issues) {\n  const issueText = issues.join(\" \").toLowerCase();\n\n  if (issueText.includes(\"duplicate\")) {\n    return \"Check source system before posting or payment.\";\n  }\n\n  if (issueText.includes(\"vat\")) {\n    return \"Verify VAT calculation and supplier invoice details.\";\n  }\n\n  if (issueText.includes(\"payment date\")) {\n    return \"Confirm payment date from bank or payment system.\";\n  }\n\n  if (issueText.includes(\"due date\")) {\n    return \"Confirm invoice date and payment terms.\";\n  }\n\n  if (issueText.includes(\"account code\")) {\n    return \"Confirm correct account code before posting.\";\n  }\n\n  if (issueText.includes(\"supplier vat\")) {\n    return \"Check vendor master data or request missing supplier VAT number.\";\n  }\n\n  return \"Finance team should review missing or inconsistent data.\";\n}\n\nfunction getCategory(issues) {\n  const issueText = issues.join(\" \").toLowerCase();\n\n  if (issueText.includes(\"duplicate\")) return \"Duplicate risk\";\n  if (issueText.includes(\"vat\")) return \"VAT / tax validation\";\n  if (issueText.includes(\"payment\")) return \"Reconciliation\";\n  if (issueText.includes(\"due date\")) return \"Date validation\";\n  if (issueText.includes(\"account code\")) return \"Accounting coding\";\n  if (issueText.includes(\"supplier\")) return \"Vendor data quality\";\n\n  return \"Data quality\";\n}\n\nfunction getReviewNote(invoice, issues, priority) {\n  if (issues.length === 0) {\n    return \"No exception detected. This record appears ready for normal finance processing.\";\n  }\n\n  return `This record needs ${priority.toLowerCase()} priority review because: ${issues.join(\"; \")}. Suggested next step: ${getSuggestedAction(issues)}`;\n}\n\nconst validated = invoices.map(invoice => {\n  const issues = [];\n\n  const expectedVat = round2(invoice.net_amount * 0.24);\n  const expectedTotal = round2(invoice.net_amount + invoice.vat_amount);\n\n  const invoiceDate = parseDate(invoice.invoice_date);\n  const dueDate = parseDate(invoice.due_date);\n\n  if (!invoice.invoice_id) {\n    issues.push(\"Missing invoice ID\");\n  }\n\n  if (!invoice.supplier_vat) {\n    issues.push(\"Missing supplier VAT number\");\n  }\n\n  if (invoiceCounts[invoice.invoice_id] > 1) {\n    issues.push(\"Possible duplicate invoice ID\");\n  }\n\n  if (invoiceDate && dueDate && dueDate < invoiceDate) {\n    issues.push(\"Due date is before invoice date\");\n  }\n\n  if (round2(invoice.vat_amount) !== expectedVat) {\n    issues.push(`VAT mismatch: expected ${expectedVat}, found ${invoice.vat_amount}`);\n  }\n\n  if (round2(invoice.total_amount) !== expectedTotal) {\n    issues.push(`Total mismatch: expected ${expectedTotal}, found ${invoice.total_amount}`);\n  }\n\n  if (String(invoice.status).toLowerCase() === \"paid\" && !invoice.payment_date) {\n    issues.push(\"Invoice marked as paid but payment date is missing\");\n  }\n\n  if (!invoice.account_code) {\n    issues.push(\"Missing account code\");\n  }\n\n  let reviewStatus = \"OK\";\n  let priority = \"Low\";\n\n  if (issues.length === 1) {\n    reviewStatus = \"Needs Review\";\n    priority = \"Medium\";\n  }\n\n  if (issues.length >= 2) {\n    reviewStatus = \"Exception\";\n    priority = \"High\";\n  }\n\n  const category = getCategory(issues);\n  const suggestedAction = getSuggestedAction(issues);\n  const reviewNote = getReviewNote(invoice, issues, priority);\n\n  return {\n    json: {\n      invoice_id: invoice.invoice_id,\n      supplier_name: invoice.supplier_name,\n      total_amount: invoice.total_amount,\n      currency: invoice.currency,\n      review_status: reviewStatus,\n      priority,\n      exception_category: category,\n      issues: issues.length ? issues.join(\"; \") : \"No issue\",\n      suggested_action: suggestedAction,\n      review_note: reviewNote\n    }\n  };\n});\n\nreturn validated;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        64
+      ],
+      "id": "ca8339fa-84a3-471d-8fc5-6b89e5b603af",
+      "name": "Validate Finance Exceptions"
+    },
+    {
+      "parameters": {
+        "jsCode": "const records = items.map(item => item.json);\n\nconst totalRecords = records.length;\nconst okRecords = records.filter(r => r.review_status === \"OK\").length;\nconst needsReview = records.filter(r => r.review_status === \"Needs Review\").length;\nconst exceptions = records.filter(r => r.review_status === \"Exception\").length;\n\nconst highPriority = records.filter(r => r.priority === \"High\").length;\nconst mediumPriority = records.filter(r => r.priority === \"Medium\").length;\nconst lowPriority = records.filter(r => r.priority === \"Low\").length;\n\nconst exceptionValue = records\n  .filter(r => r.review_status !== \"OK\")\n  .reduce((sum, r) => sum + Number(r.total_amount || 0), 0);\n\nconst exceptionRows = records\n  .filter(r => r.review_status !== \"OK\")\n  .map(r => {\n    return {\n      invoice_id: r.invoice_id,\n      supplier_name: r.supplier_name,\n      total_amount: r.total_amount,\n      currency: r.currency,\n      review_status: r.review_status,\n      priority: r.priority,\n      exception_category: r.exception_category,\n      issues: r.issues,\n      suggested_action: r.suggested_action\n    };\n  });\n\nlet summaryText = \"\";\n\nif (exceptions > 0) {\n  summaryText = `${totalRecords} finance records were checked. ${okRecords} records are ready for normal processing, ${needsReview} need review, and ${exceptions} are high-risk exceptions. The total value affected by review items is ${exceptionValue} EUR. Finance should prioritize duplicate, VAT, and reconciliation-related issues before posting, payment, or close.`;\n} else if (needsReview > 0) {\n  summaryText = `${totalRecords} finance records were checked. ${okRecords} records are ready for normal processing and ${needsReview} need review. No high-risk exceptions were detected.`;\n} else {\n  summaryText = `${totalRecords} finance records were checked. No exceptions were detected. All records appear ready for normal processing.`;\n}\n\nreturn [\n  {\n    json: {\n      report_title: \"AI-Assisted Finance Exception Monitoring Report\",\n      generated_for: \"Finance operations review\",\n      total_records_checked: totalRecords,\n      ok_records: okRecords,\n      needs_review_records: needsReview,\n      exception_records: exceptions,\n      high_priority_items: highPriority,\n      medium_priority_items: mediumPriority,\n      low_priority_items: lowPriority,\n      total_value_requiring_review_eur: exceptionValue,\n      executive_summary: summaryText,\n      exception_rows: exceptionRows\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        64
+      ],
+      "id": "d8e35848-14b0-4ee0-b806-a3251965654b",
+      "name": "Create Exception Summary Report"
+    },
+    {
+      "parameters": {
+        "jsCode": "const report = items[0].json;\n\nconst rows = report.exception_rows || [];\n\nlet exceptionTable = \"\";\n\nif (rows.length === 0) {\n  exceptionTable = \"No exceptions detected.\";\n} else {\n  exceptionTable = `\n| Invoice ID | Supplier | Amount | Status | Priority | Category | Issue | Suggested Action |\n|---|---|---:|---|---|---|---|---|\n${rows.map(r => `| ${r.invoice_id} | ${r.supplier_name} | ${r.total_amount} ${r.currency} | ${r.review_status} | ${r.priority} | ${r.exception_category} | ${r.issues} | ${r.suggested_action} |`).join(\"\\n\")}\n`;\n}\n\nconst markdownReport = `# ${report.report_title}\n\n## Purpose\n\nThis prototype simulates a finance operations workflow where invoice and transaction records are automatically checked for data quality, reconciliation, VAT, duplicate, and accounting coding issues.\n\nThe goal is not to replace accountants, but to help finance teams focus on exceptions instead of manually checking every record.\n\n## Executive Summary\n\n${report.executive_summary}\n\n## Key Metrics\n\n| Metric | Value |\n|---|---:|\n| Total records checked | ${report.total_records_checked} |\n| OK records | ${report.ok_records} |\n| Needs review | ${report.needs_review_records} |\n| High-risk exceptions | ${report.exception_records} |\n| High priority items | ${report.high_priority_items} |\n| Medium priority items | ${report.medium_priority_items} |\n| Low priority items | ${report.low_priority_items} |\n| Total value requiring review | ${report.total_value_requiring_review_eur} EUR |\n\n## Exception Details\n\n${exceptionTable}\n\n## Human-in-the-Loop Control\n\nThe workflow does not approve invoices or payments. It only detects issues, classifies review priority, and prepares finance-friendly notes so a human specialist can decide the correct next action.\n\n## Possible Extensions\n\n- Connect to ERP export data\n- Add Power Automate or Make integration\n- Add real AI explanation using Claude, ChatGPT, or Copilot\n- Send exception summary by email or Teams\n- Store exception history for audit and follow-up\n`;\n\nreturn [\n  {\n    json: {\n      markdown_report: markdownReport\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        384,
+        64
+      ],
+      "id": "a4e7579d-998c-467a-9c59-b3dba66334ae",
+      "name": "Create Markdown Report"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "61364b6d-3118-4570-86b4-11fa7d299d6d",
+              "name": "file_name",
+              "value": "ai-finance-exception-report.md",
+              "type": "string"
+            },
+            {
+              "id": "96945795-48db-4c23-8334-4b59c35040a5",
+              "name": "project_name",
+              "value": "ai-finance-exception-workflow",
+              "type": "string"
+            },
+            {
+              "id": "959569c2-5f64-4831-b532-854878f1dcae",
+              "name": "report_content",
+              "value": "={{ $json.markdown_report }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        592,
+        64
+      ],
+      "id": "a8493a37-6eaa-4675-992c-893883114df9",
+      "name": "Prepare Report Export"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -448,
+        64
+      ],
+      "id": "976dc86d-b1d8-4bb9-bc33-7410adcb8d24",
+      "name": "Manual Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Create Sample Finance Data": {
+      "main": [
+        [
+          {
+            "node": "Validate Finance Exceptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Finance Exceptions": {
+      "main": [
+        [
+          {
+            "node": "Create Exception Summary Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Exception Summary Report": {
+      "main": [
+        [
+          {
+            "node": "Create Markdown Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Markdown Report": {
+      "main": [
+        [
+          {
+            "node": "Prepare Report Export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Sample Finance Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "c2c68690-b0b3-412c-b7f2-80ccb40b7663",
+  "meta": {
+    "instanceId": "b625d4c2c60641bcd3999c78f017a16bfcefdc111c0a1761ebcb83091aca3e57"
+  },
+  "id": "aITxnDX2NjLBQ2zN",
+  "tags": []
+}
