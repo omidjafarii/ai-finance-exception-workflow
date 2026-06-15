@@ -1,0 +1,6 @@
+invoice_id,supplier_name,invoice_date,due_date,total_amount,currency,vat_amount,expected_vat_amount,payment_status,payment_date,account_code
+INV-1001,Nordic Office Supplies,2026-06-10,2026-06-25,1240,EUR,297.6,297.6,Paid,2026-06-12,6100
+INV-1002,Helsinki Logistics Oy,2026-06-11,2026-06-24,860,EUR,206.4,206.4,Unpaid,, 
+INV-1003,Cloud Systems Finland,2026-06-13,2026-06-05,2300,EUR,552,552,Unpaid,,6500
+INV-1004,Nordic Office Supplies,2026-06-10,2026-06-25,1240,EUR,297.6,297.6,Paid,2026-06-12,6100
+INV-1005,Data Consulting Oy,2026-06-12,2026-06-26,1800,EUR,200,432,Paid,,6700
