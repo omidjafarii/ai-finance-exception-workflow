@@ -1,0 +1,729 @@
+{
+  "name": "AI Finance Exception Workflow - V2 Conditional Routing",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      timestamp: new Date().toISOString(),\n      invoice_id: \"INV-1001\",\n      supplier_name: \"Nordic Office Supplies\",\n      supplier_vat: \"FI12345678\",\n      invoice_date: \"2026-07-01\",\n      due_date: \"2026-07-15\",\n      net_amount: 1000,\n      vat_amount: 240,\n      total_amount: 1240,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"2026-07-10\",\n      account_code: \"6100\"\n    }\n  },\n  {\n    json: {\n      timestamp: new Date().toISOString(),\n      invoice_id: \"INV-1002\",\n      supplier_name: \"Helsinki IT Services\",\n      supplier_vat: \"\",\n      invoice_date: \"2026-07-02\",\n      due_date: \"2026-07-16\",\n      net_amount: 800,\n      vat_amount: 192,\n      total_amount: 992,\n      currency: \"EUR\",\n      status: \"unpaid\",\n      payment_date: \"\",\n      account_code: \"6200\"\n    }\n  },\n  {\n    json: {\n      timestamp: new Date().toISOString(),\n      invoice_id: \"INV-1003\",\n      supplier_name: \"Tampere Consulting\",\n      supplier_vat: \"FI87654321\",\n      invoice_date: \"2026-07-04\",\n      due_date: \"2026-07-03\",\n      net_amount: 500,\n      vat_amount: 120,\n      total_amount: 620,\n      currency: \"EUR\",\n      status: \"unpaid\",\n      payment_date: \"\",\n      account_code: \"6300\"\n    }\n  },\n  {\n    json: {\n      timestamp: new Date().toISOString(),\n      invoice_id: \"INV-1004\",\n      supplier_name: \"Nordic Office Supplies\",\n      supplier_vat: \"FI12345678\",\n      invoice_date: \"2026-07-01\",\n      due_date: \"2026-07-15\",\n      net_amount: 1000,\n      vat_amount: 240,\n      total_amount: 1240,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"2026-07-10\",\n      account_code: \"6100\"\n    }\n  },\n  {\n    json: {\n      timestamp: new Date().toISOString(),\n      invoice_id: \"INV-1005\",\n      supplier_name: \"Payroll Partner Oy\",\n      supplier_vat: \"FI55555555\",\n      invoice_date: \"2026-07-05\",\n      due_date: \"2026-07-20\",\n      net_amount: 1200,\n      vat_amount: 250,\n      total_amount: 1450,\n      currency: \"EUR\",\n      status: \"paid\",\n      payment_date: \"\",\n      account_code: \"6400\"\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "14854068-0619-4d3a-947e-4e046edb765b",
+      "name": "Create Sample Finance Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "const invoices = items.map(item => item.json);\n\nconst invoiceCounts = {};\nfor (const invoice of invoices) {\n  invoiceCounts[invoice.invoice_id] = (invoiceCounts[invoice.invoice_id] || 0) + 1;\n}\n\nfunction parseDate(value) {\n  if (!value) return null;\n  return new Date(value);\n}\n\nfunction round2(value) {\n  return Math.round(Number(value) * 100) / 100;\n}\n\nfunction getSuggestedAction(issues) {\n  const issueText = issues.join(\" \").toLowerCase();\n\n  if (issueText.includes(\"duplicate\")) {\n    return \"Check source system before posting or payment.\";\n  }\n\n  if (issueText.includes(\"vat\")) {\n    return \"Verify VAT calculation and supplier invoice details.\";\n  }\n\n  if (issueText.includes(\"payment date\")) {\n    return \"Confirm payment date from bank or payment system.\";\n  }\n\n  if (issueText.includes(\"due date\")) {\n    return \"Confirm invoice date and payment terms.\";\n  }\n\n  if (issueText.includes(\"account code\")) {\n    return \"Confirm correct account code before posting.\";\n  }\n\n  if (issueText.includes(\"supplier vat\")) {\n    return \"Check vendor master data or request missing supplier VAT number.\";\n  }\n\n  return \"Finance team should review missing or inconsistent data.\";\n}\n\nfunction getCategory(issues) {\n  const issueText = issues.join(\" \").toLowerCase();\n\n  if (issueText.includes(\"duplicate\")) return \"Duplicate risk\";\n  if (issueText.includes(\"vat\")) return \"VAT / tax validation\";\n  if (issueText.includes(\"payment\")) return \"Reconciliation\";\n  if (issueText.includes(\"due date\")) return \"Date validation\";\n  if (issueText.includes(\"account code\")) return \"Accounting coding\";\n  if (issueText.includes(\"supplier\")) return \"Vendor data quality\";\n\n  return \"Data quality\";\n}\n\nfunction getReviewNote(invoice, issues, priority) {\n  if (issues.length === 0) {\n    return \"No exception detected. This record appears ready for normal finance processing.\";\n  }\n\n  return `This record needs ${priority.toLowerCase()} priority review because: ${issues.join(\"; \")}. Suggested next step: ${getSuggestedAction(issues)}`;\n}\n\nconst validated = invoices.map(invoice => {\n  const issues = [];\n\n  const expectedVat = round2(invoice.net_amount * 0.24);\n  const expectedTotal = round2(invoice.net_amount + invoice.vat_amount);\n\n  const invoiceDate = parseDate(invoice.invoice_date);\n  const dueDate = parseDate(invoice.due_date);\n\n  if (!invoice.invoice_id) {\n    issues.push(\"Missing invoice ID\");\n  }\n\n  if (!invoice.supplier_vat) {\n    issues.push(\"Missing supplier VAT number\");\n  }\n\n  if (invoiceCounts[invoice.invoice_id] > 1) {\n    issues.push(\"Possible duplicate invoice ID\");\n  }\n\n  if (invoiceDate && dueDate && dueDate < invoiceDate) {\n    issues.push(\"Due date is before invoice date\");\n  }\n\n  if (round2(invoice.vat_amount) !== expectedVat) {\n    issues.push(`VAT mismatch: expected ${expectedVat}, found ${invoice.vat_amount}`);\n  }\n\n  if (round2(invoice.total_amount) !== expectedTotal) {\n    issues.push(`Total mismatch: expected ${expectedTotal}, found ${invoice.total_amount}`);\n  }\n\n  if (String(invoice.status).toLowerCase() === \"paid\" && !invoice.payment_date) {\n    issues.push(\"Invoice marked as paid but payment date is missing\");\n  }\n\n  if (!invoice.account_code) {\n    issues.push(\"Missing account code\");\n  }\n\n  let reviewStatus = \"OK\";\n  let priority = \"Low\";\n\n  if (issues.length === 1) {\n    reviewStatus = \"Needs Review\";\n    priority = \"Medium\";\n  }\n\n  if (issues.length >= 2) {\n    reviewStatus = \"Exception\";\n    priority = \"High\";\n  }\n\n  const category = getCategory(issues);\n  const suggestedAction = getSuggestedAction(issues);\n  const reviewNote = getReviewNote(invoice, issues, priority);\n\n  return {\n    json: {\n      timestamp: invoice.timestamp,\n      invoice_id: invoice.invoice_id,\n      supplier_name: invoice.supplier_name,\n      total_amount: invoice.total_amount,\n      currency: invoice.currency,\n      review_status: reviewStatus,\n      priority,\n      exception_category: category,\n      issues: issues.length ? issues.join(\"; \") : \"No issue\",\n      suggested_action: suggestedAction,\n      review_note: reviewNote\n    }\n  };\n});\n\nreturn validated;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        416,
+        0
+      ],
+      "id": "6fc93d41-6b46-41d0-9333-ae4598d51fb4",
+      "name": "Validate Finance Exceptions"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const r = item.json;\n\n  return {\n    json: {\n      ...r,\n      process_route: \"Normal Processing\",\n      human_action_required: \"No\",\n      escalation_required: \"No\",\n      sla: \"Not applicable\",\n      business_decision: \"Continue normal finance process\",\n      next_action: \"No manual review needed. Record can continue through normal processing.\",\n      control_status: \"Cleared\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        -16
+      ],
+      "id": "43f7d6bf-583f-4002-a4ed-d09e23539a96",
+      "name": "Clean Records"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const r = item.json;\n\n  const issueSummary = Array.isArray(r.issues) ? r.issues.join(\"; \") : r.issues;\n\n  return {\n    json: {\n      ...r,\n      process_result: \"Urgent Escalation\",\n      output_type: \"Same-day control alert\",\n      human_action_required: \"Yes\",\n      escalation_required: \"Yes\",\n      sla: \"Same day\",\n      action_owner: \"Finance control / process owner\",\n      issue_summary: issueSummary,\n      business_decision: \"Block posting, payment, or closure until reviewed.\",\n      control_status: \"Blocked pending urgent review\",\n      alert_message: `Urgent finance control review required for ${r.invoice_id}. Do not process further before review.`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        128
+      ],
+      "id": "4887d658-5133-4979-abea-42f66c6f8f61",
+      "name": "Urgent Review"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const r = item.json;\n\n  const issueSummary = Array.isArray(r.issues) ? r.issues.join(\"; \") : r.issues;\n\n  return {\n    json: {\n      ...r,\n      process_result: \"Standard Review\",\n      output_type: \"Finance review task\",\n      human_action_required: \"Yes\",\n      escalation_required: \"No\",\n      sla: \"2-3 business days\",\n      action_owner: \"Finance review queue\",\n      issue_summary: issueSummary,\n      business_decision: \"Send to standard finance review before final processing.\",\n      control_status: \"Pending standard review\",\n      task_note: r.review_note || r.suggested_action || \"Finance should review this item during the normal review cycle.\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        272
+      ],
+      "id": "4914579c-7710-4324-84ed-724e83d3d7c4",
+      "name": "Standard Review"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b6dba6d4-6cfd-41a0-9a52-130d65be7c10",
+              "leftValue": "={{ $json.review_status }}",
+              "rightValue": "OK",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        624,
+        0
+      ],
+      "id": "fb024897-3440-4e21-b2c5-87d6919798c7",
+      "name": "Gate 1 - Review Needed?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e88fcc5e-1194-46d2-88a1-9c4b518065e3",
+              "leftValue": "={{ $json.priority }}",
+              "rightValue": "High",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        208
+      ],
+      "id": "3fd1192c-69e5-4874-abd0-bc12dd16808b",
+      "name": "Gate 2 - Urgent Review?"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "1253dd57-61f8-4baf-8f81-103f969db244",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Clear",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "invoice_id": "={{ $json.invoice_id }}",
+            "supplier_name": "={{ $json.supplier_name }}",
+            "total_amount": "={{ $json.total_amount }}",
+            "currency": "={{ $json.currency }}",
+            "process_result": "={{ $json.review_status }}",
+            "business_decision": "={{ $json.business_decision }}",
+            "timestamp": "={{ $json.timestamp }}"
+          },
+          "matchingColumns": [
+            "invoice_id"
+          ],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_id",
+              "displayName": "invoice_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "supplier_name",
+              "displayName": "supplier_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "process_result",
+              "displayName": "process_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_decision",
+              "displayName": "business_decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1376,
+        -16
+      ],
+      "id": "a92f4026-1b75-4c02-bf16-71abf926299b",
+      "name": "Append Clear data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ShEJ3xBS9FnP2dKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1751937182,
+          "mode": "list",
+          "cachedResultName": "Urgent",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit#gid=1751937182"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "invoice_id": "={{ $json.invoice_id }}",
+            "supplier_name": "={{ $json.supplier_name }}",
+            "total_amount": "={{ $json.total_amount }}",
+            "currency": "={{ $json.currency }}",
+            "process_result": "={{ $json.review_status }}",
+            "exception_category": "={{ $json.exception_category }}",
+            "issues": "={{ $json.issues }}",
+            "sla": "={{ $json.sla }}",
+            "control_status": "={{ $json.control_status }}",
+            "alert_message": "={{ $json.review_note }}",
+            "business_decision": "={{ $json.business_decision }}",
+            "action_owner": "={{ $json.action_owner }}"
+          },
+          "matchingColumns": [
+            "invoice_id"
+          ],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_id",
+              "displayName": "invoice_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "supplier_name",
+              "displayName": "supplier_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "process_result",
+              "displayName": "process_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_decision",
+              "displayName": "business_decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "exception_category",
+              "displayName": "exception_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "issues",
+              "displayName": "issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sla",
+              "displayName": "sla",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_owner",
+              "displayName": "action_owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "alert_message",
+              "displayName": "alert_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "control_status",
+              "displayName": "control_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1376,
+        128
+      ],
+      "id": "ca0a6d68-63af-4061-961c-e9d812b7b337",
+      "name": "Append Urgent data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ShEJ3xBS9FnP2dKA",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit?usp=sharing",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 773433293,
+          "mode": "list",
+          "cachedResultName": "Standard",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ePx_rDdifKldA1yX6SxSL-kHiTuTlF7GtPivVBf8Bp0/edit#gid=773433293"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{ $json.timestamp }}",
+            "invoice_id": "={{ $json.invoice_id }}",
+            "supplier_name": "={{ $json.supplier_name }}",
+            "total_amount": "={{ $json.total_amount }}",
+            "currency": "={{ $json.currency }}",
+            "process_result": "={{ $json.review_status }}",
+            "exception_category": "={{ $json.exception_category }}",
+            "issues": "={{ $json.issues }}",
+            "sla": "={{ $json.sla }}",
+            "business_decision": "={{ $json.business_decision }}",
+            "action_owner": "={{ $json.action_owner }}",
+            "task_note": "={{ $json.task_note }}"
+          },
+          "matchingColumns": [
+            "invoice_id"
+          ],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "invoice_id",
+              "displayName": "invoice_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "supplier_name",
+              "displayName": "supplier_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_amount",
+              "displayName": "total_amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "currency",
+              "displayName": "currency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "process_result",
+              "displayName": "process_result",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "business_decision",
+              "displayName": "business_decision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "exception_category",
+              "displayName": "exception_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "issues",
+              "displayName": "issues",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sla",
+              "displayName": "sla",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_owner",
+              "displayName": "action_owner",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "task_note",
+              "displayName": "task_note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1376,
+        320
+      ],
+      "id": "f348c97e-3c86-4bb8-a05f-5336c436092c",
+      "name": "Append Standard data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "ShEJ3xBS9FnP2dKA",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Create Sample Finance Data": {
+      "main": [
+        [
+          {
+            "node": "Validate Finance Exceptions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Finance Exceptions": {
+      "main": [
+        [
+          {
+            "node": "Gate 1 - Review Needed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate 1 - Review Needed?": {
+      "main": [
+        [
+          {
+            "node": "Clean Records",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gate 2 - Urgent Review?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gate 2 - Urgent Review?": {
+      "main": [
+        [
+          {
+            "node": "Urgent Review",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Standard Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean Records": {
+      "main": [
+        [
+          {
+            "node": "Append Clear data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Urgent Review": {
+      "main": [
+        [
+          {
+            "node": "Append Urgent data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Standard Review": {
+      "main": [
+        [
+          {
+            "node": "Append Standard data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Create Sample Finance Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fb7c855a-b4c7-4175-ab8a-4aa00db4e9a5",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b625d4c2c60641bcd3999c78f017a16bfcefdc111c0a1761ebcb83091aca3e57"
+  },
+  "id": "Um0vxxkrSFheO3Tf",
+  "tags": []
+}
