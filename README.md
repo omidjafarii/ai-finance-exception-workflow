@@ -46,7 +46,7 @@ Gate 1 - Review Needed?
                   └── Append Standard Review Queue to Google Sheets  
 ```
 
-##Input Data
+## Input Data
 The workflow starts from raw finance records.
 
 The sample input includes fields such as:
@@ -67,7 +67,7 @@ Sample data is available in:
 ```text
 v2-routing-automation/sample-data/sample-finance-records.csv
 ```
-##Validation Logic
+## Validation Logic
 
 The validation step checks each record and calculates:
 - review status
@@ -77,14 +77,14 @@ The validation step checks each record and calculates:
 - suggested action
 - review note
 
-##Example checks include:
+## Example checks include:
 - missing account code
 - due date before invoice date
 - VAT mismatch
 - paid invoice with missing payment date
 - possible duplicate invoice records
 
-##Routing Logic
+## Routing Logic
 The workflow uses two decision gates.
 ##Gate1:Review Needed?
 Clean records are sent to the cleared records log.
@@ -93,7 +93,7 @@ Records with detected issues continue to the urgency check.
 High-priority records are sent to the urgent escalation log.
 Non-urgent records are sent to the standard review queue.
 
-##Output
+## Output
 The workflow writes routed results into a Google Sheet named:
 ```text
 Finance Exception Workflow Log
@@ -104,30 +104,30 @@ Cleared Records
 Standard Review Queue
 Urgent Escalations
 ```
-##Cleared Records
+## Cleared Records
 Used for records that passed validation and do not need manual review.
 
-##Standard Review Queue
+## Standard Review Queue
 Used for records that require finance review within a normal review cycle.
 
-##Urgent Escalations
+## Urgent Escalations
 Used for high-priority records that should be reviewed as soon as possible before further processing.
 
-##Screenshots
+## Screenshots
 ##Workflow Canvas
 
 The workflow validates raw finance records, routes them through two decision gates, and sends each category to a different Google Sheets output.
 
-##Cleared Records Log
+## Cleared Records Log
 Clean records are logged separately because they do not require human review.
 
-##Standard Review Queue
+## Standard Review Queue
 Non-urgent exceptions are routed into a normal finance review queue.
 
-##Urgent Escalations Log
+## Urgent Escalations Log
 High-priority exceptions are routed into an urgent escalation log for same-day review.
 
-##Repository Structure
+## Repository Structure
 ```text
 finance-exception-monitoring-workflow/
 ├── README.md
@@ -153,7 +153,7 @@ finance-exception-monitoring-workflow/
     ├── reports/
     └── docs/
 ```
-##Why n8n Was Used
+## Why n8n Was Used
 This workflow uses n8n because the value is not only in detecting issues.
 
 The value is in orchestrating a process:
@@ -165,7 +165,7 @@ The value is in orchestrating a process:
 - audit-style logging
 - human review routing
 
-##What This Project Demonstrates
+## What This Project Demonstrates
 
 This project demonstrates:
 - building a workflow in n8n
@@ -176,7 +176,7 @@ This project demonstrates:
 - creating audit-style operational logs
 - designing human-in-the-loop review processes
 
-##Current Limitations
+## Current Limitations
 This is a portfolio workflow, not a production finance system.
 
 - sample data is generated inside the workflow
@@ -185,7 +185,7 @@ This is a portfolio workflow, not a production finance system.
 - no live ERP or accounting system is connected
 - no approval workflow is included yet
 
-##Future Improvements
+## Future Improvements
 Planned improvements:
 - connect the workflow to a real CSV upload, database, or ERP-style data source
 - add duplicate prevention before logging repeated urgent cases
@@ -194,13 +194,13 @@ Planned improvements:
 - connect to a SQL-backed business dataset
 - add error handling and execution failure notifications
 
-##Project Evolution
+## Project Evolution
 This repository includes two versions.
 
-##V1: Simple Report
+## V1: Simple Report
 The first version validates sample finance records and creates a basic exception report.
 
-##V2: Routing Automation
+## V2: Routing Automation
 The second version improves the workflow by adding:
 - decision gates
 - separate process branches
@@ -208,6 +208,6 @@ The second version improves the workflow by adding:
 - clearer human review routing
 - standard and urgent review separation
 
-##Project Purpose
+## Project Purpose
 This project was built to demonstrate practical process automation skills using n8n.
 It shows how raw business records can be validated, classified, routed, and logged into operational queues using automation logic.
