@@ -43,8 +43,8 @@ Gate 1 - Review Needed?
           │
           └── No
               └── Create Standard Review Queue
-                  └── Append Standard Review Queue to Google Sheets
-
+                  └── Append Standard Review Queue to Google Sheets  
+```
 
 ##Input Data
 The workflow starts from raw finance records.
@@ -66,7 +66,7 @@ The input data does not manually include priority, review status, exception cate
 Sample data is available in:
 ```text
 v2-routing-automation/sample-data/sample-finance-records.csv
-
+```
 ##Validation Logic
 
 The validation step checks each record and calculates:
@@ -97,13 +97,13 @@ Non-urgent records are sent to the standard review queue.
 The workflow writes routed results into a Google Sheet named:
 ```text
 Finance Exception Workflow Log
-
+```
 It uses three tabs:
 ```text
 Cleared Records
 Standard Review Queue
 Urgent Escalations
-
+```
 ##Cleared Records
 Used for records that passed validation and do not need manual review.
 
@@ -152,7 +152,7 @@ finance-exception-monitoring-workflow/
     │
     ├── reports/
     └── docs/
-
+```
 ##Why n8n Was Used
 This workflow uses n8n because the value is not only in detecting issues.
 
